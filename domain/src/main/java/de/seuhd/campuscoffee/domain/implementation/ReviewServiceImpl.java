@@ -1,6 +1,14 @@
 package de.seuhd.campuscoffee.domain.implementation;
 
+import java.util.List;
+
+import org.jspecify.annotations.NonNull;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import de.seuhd.campuscoffee.domain.configuration.ApprovalConfiguration;
+import de.seuhd.campuscoffee.domain.exceptions.NotFoundException;
+import de.seuhd.campuscoffee.domain.exceptions.ValidationException;
 import de.seuhd.campuscoffee.domain.model.objects.Review;
 import de.seuhd.campuscoffee.domain.ports.api.ReviewService;
 import de.seuhd.campuscoffee.domain.ports.data.CrudDataService;
@@ -8,11 +16,6 @@ import de.seuhd.campuscoffee.domain.ports.data.PosDataService;
 import de.seuhd.campuscoffee.domain.ports.data.ReviewDataService;
 import de.seuhd.campuscoffee.domain.ports.data.UserDataService;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * Implementation of the Review service that handles business logic related to review entities.
@@ -23,7 +26,6 @@ public class ReviewServiceImpl extends CrudServiceImpl<Review, Long> implements 
     private final ReviewDataService reviewDataService;
     private final UserDataService userDataService;
     private final PosDataService posDataService;
-    // TODO: Try to find out the purpose of this class and how it is connected to the application.yaml configuration file.
     private final ApprovalConfiguration approvalConfiguration;
 
     public ReviewServiceImpl(@NonNull ReviewDataService reviewDataService,
@@ -45,8 +47,15 @@ public class ReviewServiceImpl extends CrudServiceImpl<Review, Long> implements 
     @Override
     @Transactional
     public @NonNull Review upsert(@NonNull Review review) {
-        // TODO: Implement the missing business logic here
-
+        if (review.id() == null) {
+            // create a new Review
+            log.info("Creating new Review: {}", review.id());
+        } else {
+            // update an existing Review
+            log.info("Updating Review with ID: {}", review.id());
+            // Review must exist in the database before the update
+            reviewDataService.getById(review.id());
+        }
         return super.upsert(review);
     }
 
@@ -63,19 +72,31 @@ public class ReviewServiceImpl extends CrudServiceImpl<Review, Long> implements 
                 review.getId(), userId);
 
         // validate that the user exists
-        // TODO: Implement the required business logic here
+        log.info("Making sure user '{}' exists in database...", 
+                userDataService.getById(userId));
 
         // validate that the review exists
-        // TODO: Implement the required business logic here
+        log.info("Making sure review '{}' exists in database...",
+                review.getId());
+        if (!reviewDataService.getAll().contains(review)) {
+            throw new NotFoundException(review.getClass(), review.getId());
+        }
 
         // a user cannot approve their own review
-        // TODO: Implement the required business logic here
+        log.info("Approve user '{}' is not review author '{}'...",
+                userId, review.author().getId());
+        if (userId.equals(review.author().getId())) {
+            throw new ValidationException("Author is not allowed to approve own review!");
+        }
 
         // increment approval count
-        // TODO: Implement the required business logic here
+        log.info("Incrementing approval count from '{}' to '{}'...",
+                review.approvalCount(), review.approvalCount() + 1);
+        review.toBuilder()
+                .approvalCount(review.approvalCount() + 1);
 
         // update approval status to determine if the review now reaches the approval quorum
-        // TODO: Implement the required business logic here
+        updateApprovalStatus(review);
 
         return reviewDataService.upsert(review);
     }
