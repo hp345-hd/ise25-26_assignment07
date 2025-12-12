@@ -58,6 +58,7 @@ public class ReviewController extends CrudController<Review, ReviewDto, Long> {
         return reviewDtoMapper;
     }
 
+    @Override
     @Operation
     @CrudOperation(operation=GET_ALL, resource=REVIEW)
     @GetMapping("")
@@ -65,6 +66,7 @@ public class ReviewController extends CrudController<Review, ReviewDto, Long> {
         return super.getAll();
     }
 
+    @Override
     @Operation
     @CrudOperation(operation=GET_BY_ID, resource=REVIEW)
     @GetMapping("/{id}")
@@ -74,6 +76,7 @@ public class ReviewController extends CrudController<Review, ReviewDto, Long> {
         return super.getById(id);
     }
 
+    @Override
     @Operation
     @CrudOperation(operation=CREATE, resource=REVIEW)
     @PostMapping("")
@@ -83,6 +86,7 @@ public class ReviewController extends CrudController<Review, ReviewDto, Long> {
         return super.create(reviewDto);
     }
 
+    @Override
     @Operation
     @CrudOperation(operation=UPDATE, resource=REVIEW)
     @PutMapping("/{id}")
@@ -94,6 +98,7 @@ public class ReviewController extends CrudController<Review, ReviewDto, Long> {
         return super.update(id, reviewDto);
     }
 
+    @Override
     @Operation
     @CrudOperation(operation=DELETE, resource=REVIEW)
     @DeleteMapping("/{id}")
@@ -119,7 +124,7 @@ public class ReviewController extends CrudController<Review, ReviewDto, Long> {
     }
 
     @Operation
-    @PutMapping("")
+    @PutMapping("/{id}")
     public ResponseEntity<ReviewDto> approve(
             @PathVariable Long id,
             @RequestParam ("user_id") Long userId) {

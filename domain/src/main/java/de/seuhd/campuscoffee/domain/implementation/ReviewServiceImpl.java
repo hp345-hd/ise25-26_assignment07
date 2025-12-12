@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import de.seuhd.campuscoffee.domain.configuration.ApprovalConfiguration;
-import de.seuhd.campuscoffee.domain.exceptions.NotFoundException;
 import de.seuhd.campuscoffee.domain.exceptions.ValidationException;
 import de.seuhd.campuscoffee.domain.model.objects.Review;
 import de.seuhd.campuscoffee.domain.ports.api.ReviewService;
@@ -47,15 +46,14 @@ public class ReviewServiceImpl extends CrudServiceImpl<Review, Long> implements 
     @Override
     @Transactional
     public @NonNull Review upsert(@NonNull Review review) {
-        if (review.id() == null) {
-            // create a new Review
-            log.info("Creating new Review: {}", review.id());
-        } else {
-            // update an existing Review
-            log.info("Updating Review with ID: {}", review.id());
-            // Review must exist in the database before the update
-            reviewDataService.getById(review.id());
+        posDataService.getById(review.pos().getId());
+        userDataService.getById(review.author().getId());
+
+        List<Review> existingReviews = reviewDataService.filter(review.pos(), review.author());
+        if (!existingReviews.isEmpty()) {
+            throw new ValidationException("User has already authored a review for this POS!");
         }
+
         return super.upsert(review);
     }
 
@@ -73,14 +71,13 @@ public class ReviewServiceImpl extends CrudServiceImpl<Review, Long> implements 
 
         // validate that the user exists
         log.info("Making sure user '{}' exists in database...", 
-                userDataService.getById(userId));
+                userId);
+        userDataService.getById(userId);
 
         // validate that the review exists
         log.info("Making sure review '{}' exists in database...",
                 review.getId());
-        if (!reviewDataService.getAll().contains(review)) {
-            throw new NotFoundException(review.getClass(), review.getId());
-        }
+        reviewDataService.getById(review.getId());
 
         // a user cannot approve their own review
         log.info("Approve user '{}' is not review author '{}'...",
@@ -92,11 +89,12 @@ public class ReviewServiceImpl extends CrudServiceImpl<Review, Long> implements 
         // increment approval count
         log.info("Incrementing approval count from '{}' to '{}'...",
                 review.approvalCount(), review.approvalCount() + 1);
-        review.toBuilder()
-                .approvalCount(review.approvalCount() + 1);
+        Review updatedReview = review.toBuilder()
+                .approvalCount(review.approvalCount() + 1)
+                .build();
 
         // update approval status to determine if the review now reaches the approval quorum
-        updateApprovalStatus(review);
+        review = updateApprovalStatus(updatedReview);
 
         return reviewDataService.upsert(review);
     }
